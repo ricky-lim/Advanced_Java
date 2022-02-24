@@ -1,11 +1,14 @@
 package networking;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
+import javax.json.Json;
+import javax.json.JsonException;
+import javax.json.JsonObject;
+import javax.json.JsonReader;
+import java.io.*;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -46,5 +49,34 @@ public class Geocoder {
         }
 
         return response;
+    }
+
+    public void fillInLatLng(Location location) throws JsonException {
+        String encoded = encodeAddress(
+                Arrays.asList(location.getStreet(), location.getCity(), location.getState())
+        );
+        try {
+            URL url = new URL(String.format("%saddress=%s", BASE, encoded));
+            try (InputStream is = url.openStream();
+                 JsonReader jr = Json.createReader(is)) {
+                JsonObject jo = jr.readObject();
+                if (jo.containsKey("error_message")) {
+                    throw new JsonException(
+                            String.format("Json contains error message: %s", jo.getString("error_message"))
+                    );
+                }
+
+                JsonObject loc = jo.getJsonArray("results")
+                        .getJsonObject(0)
+                        .getJsonObject("geometry")
+                        .getJsonObject("locaation");
+                location.setLatitute(loc.getJsonNumber("lat").doubleValue());
+                location.setLatitute(loc.getJsonNumber("lng").doubleValue());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        }
     }
 }
